@@ -32,6 +32,8 @@ import java.io.FileInputStream;
 import java.io.FileOutputStream;
 import java.io.IOException;
 import java.io.InputStream;
+import java.lang.reflect.InvocationTargetException;
+import java.lang.reflect.Method;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
@@ -40,6 +42,7 @@ import java.util.regex.Pattern;
 
 import android.app.Activity;
 import android.app.AlertDialog;
+import android.app.Dialog;
 import android.content.ActivityNotFoundException;
 import android.content.AsyncQueryHandler;
 import android.content.BroadcastReceiver;
@@ -47,6 +50,8 @@ import android.content.ContentResolver;
 import android.content.ContentUris;
 import android.content.ContentValues;
 import android.content.Context;
+import android.content.SharedPreferences;
+import android.preference.PreferenceManager;
 import android.content.DialogInterface;
 import android.content.Intent;
 import android.content.IntentFilter;
@@ -58,6 +63,11 @@ import android.database.sqlite.SQLiteException;
 import android.database.sqlite.SqliteWrapper;
 import android.drm.mobile1.DrmException;
 import android.drm.mobile1.DrmRawContent;
+import android.gesture.Gesture;
+import android.gesture.GestureLibrary;
+import android.gesture.GestureOverlayView;
+import android.gesture.GestureOverlayView.OnGesturePerformedListener;
+import android.gesture.Prediction;
 import android.graphics.drawable.Drawable;
 import android.media.CamcorderProfile;
 import android.media.RingtoneManager;
@@ -69,15 +79,21 @@ import android.os.Message;
 import android.os.Parcelable;
 import android.os.SystemProperties;
 import android.provider.ContactsContract;
+import android.provider.ContactsContract.CommonDataKinds;
+import android.provider.ContactsContract.CommonDataKinds.Email;
+import android.provider.ContactsContract.CommonDataKinds.Phone;
+import android.provider.ContactsContract.CommonDataKinds.StructuredPostal;
+import android.provider.ContactsContract.CommonDataKinds.Website;
+import android.provider.ContactsContract.Contacts;
+import android.provider.ContactsContract.Data;
+import android.provider.ContactsContract.RawContactsEntity;
 import android.provider.DrmStore;
 import android.provider.MediaStore;
-import android.provider.Settings;
-import android.provider.ContactsContract.Contacts;
-import android.provider.ContactsContract.CommonDataKinds.Email;
 import android.provider.MediaStore.Images;
 import android.provider.MediaStore.Video;
 import android.provider.Telephony.Mms;
 import android.provider.Telephony.Sms;
+import android.provider.Settings;
 import android.telephony.SmsMessage;
 import android.text.ClipboardManager;
 import android.text.Editable;
@@ -112,6 +128,7 @@ import android.widget.ImageView;
 import android.widget.LinearLayout;
 import android.widget.ListView;
 import android.widget.SimpleAdapter;
+import android.widget.CursorAdapter;
 import android.widget.TextView;
 import android.widget.Toast;
 
@@ -134,8 +151,11 @@ import com.google.android.mms.pdu.PduPersister;
 import com.google.android.mms.pdu.SendReq;
 import com.android.mms.model.SlideModel;
 import com.android.mms.model.SlideshowModel;
+import com.android.mms.templates.TemplateGesturesLibrary;
+import com.android.mms.templates.TemplatesDb;
 import com.android.mms.transaction.MessagingNotification;
 import com.android.mms.ui.MessageUtils.ResizeImageResultCallback;
+import com.android.mms.ui.MessagingPreferenceActivity;
 import com.android.mms.ui.RecipientsEditor.RecipientContextMenuInfo;
 import com.android.mms.util.SendingProgressTokenManager;
 import com.android.mms.util.SmileyParser;
@@ -155,16 +175,35 @@ import com.android.mms.util.SmileyParser;
  */
 public class ComposeMessageActivity extends Activity
         implements View.OnClickListener, TextView.OnEditorActionListener,
-        MessageStatusListener, Contact.UpdateListener {
+        MessageStatusListener, Contact.UpdateListener, OnGesturePerformedListener {
+
+    // Phone Goggles block created for compatibility and demonstration to
+    // to external developers
+    private static Method phoneGoggles;
+    static {
+        try {
+            Class phoneGogglesClass = Class.forName("android.util.PhoneGoggles");
+            phoneGoggles = phoneGogglesClass.getMethod("processCommunication",
+                    new Class[] {Context.class, int.class, String[].class,
+                    Runnable.class, Runnable.class, int.class, int.class,
+                    int.class, int.class, int.class, int.class});
+
+        } catch (ClassNotFoundException e) {
+        } catch (SecurityException e) {
+        } catch (NoSuchMethodException e) {
+        }
+    }
+
     public static final int REQUEST_CODE_ATTACH_IMAGE     = 10;
     public static final int REQUEST_CODE_TAKE_PICTURE     = 11;
     public static final int REQUEST_CODE_ATTACH_VIDEO     = 12;
     public static final int REQUEST_CODE_TAKE_VIDEO       = 13;
     public static final int REQUEST_CODE_ATTACH_SOUND     = 14;
     public static final int REQUEST_CODE_RECORD_SOUND     = 15;
-    public static final int REQUEST_CODE_CREATE_SLIDESHOW = 16;
-    public static final int REQUEST_CODE_ECM_EXIT_DIALOG  = 17;
-    public static final int REQUEST_CODE_ADD_CONTACT      = 18;
+    public static final int REQUEST_CODE_ATTACH_CONTACT   = 16;
+    public static final int REQUEST_CODE_CREATE_SLIDESHOW = 17;
+    public static final int REQUEST_CODE_ECM_EXIT_DIALOG  = 18;
+    public static final int REQUEST_CODE_ADD_CONTACT      = 19;
 
     private static final String TAG = "Mms/compose";
 
@@ -201,6 +240,7 @@ public class ComposeMessageActivity extends Activity
     private static final int MENU_LOCK_MESSAGE          = 28;
     private static final int MENU_UNLOCK_MESSAGE        = 29;
     private static final int MENU_COPY_TO_DRM_PROVIDER  = 30;
+    private static final int MENU_INSERT_TEMPLATE 		= 31;
 
     private static final int RECIPIENTS_MAX_LENGTH = 312;
 
@@ -214,6 +254,9 @@ public class ComposeMessageActivity extends Activity
 
     private static final String EXIT_ECM_RESULT = "exit_ecm_result";
 
+    private static final int DIALOG_TEMPLATE_SELECT = 0;
+    private static final int DIALOG_TEMPLATE_NOT_AVAILABLE = 1;
+
     private ContentResolver mContentResolver;
 
     private BackgroundQueryHandler mBackgroundQueryHandler;
@@ -221,6 +264,10 @@ public class ComposeMessageActivity extends Activity
     private Conversation mConversation;     // Conversation we are working in
 
     private boolean mExitOnSent;            // Should we finish() after sending a message?
+    private boolean mSendOnEnter;           // Send on Enter
+
+    private boolean mBlackBackground;       // Option for switch background from white to black
+    private boolean mBackToAllThreads;      // Always return to all threads list
 
     private View mTopPanel;                 // View containing the recipient and subject editors
     private View mBottomPanel;              // View containing the text editor, send button, ec.
@@ -265,6 +312,10 @@ public class ComposeMessageActivity extends Activity
     private Intent mAddContactIntent;   // Intent used to add a new contact
 
     private String mDebugRecipients;
+
+    private GestureLibrary mLibrary;
+    private TemplatesDb mTemplatesDb;
+    private String[] mTemplatesText;
 
     @SuppressWarnings("unused")
     private static void log(String logMsg) {
@@ -428,6 +479,12 @@ public class ComposeMessageActivity extends Activity
         if (!workingMessage.requiresMms() &&
                 (msgCount > 1 ||
                  remainingInCurrentMessage <= CHARS_REMAINING_BEFORE_COUNTER_SHOWN)) {
+            showCounter = true;
+        }
+
+        // Show the counter if the pref_key_show_counter_always preference is TRUE
+        SharedPreferences prefs = PreferenceManager.getDefaultSharedPreferences(this);
+        if(prefs.getBoolean("pref_key_show_counter_always",false)== true){
             showCounter = true;
         }
 
@@ -1389,7 +1446,7 @@ public class ComposeMessageActivity extends Activity
     }
 
     /**
-     * Copies media from an Mms to the "download" directory on the SD card
+     * Copies media from an Mms to a directory on the SD card
      * @param msgId
      */
     private boolean copyMedia(long msgId) {
@@ -1440,8 +1497,10 @@ public class ComposeMessageActivity extends Activity
                 }
                 // Depending on the location, there may be an
                 // extension already on the name or not
+                // Get Shared Preferences and User Defined Save Location for MMS
+                SharedPreferences prefs = PreferenceManager.getDefaultSharedPreferences(this);
                 String dir = Environment.getExternalStorageDirectory() + "/"
-                                + Environment.DIRECTORY_DOWNLOADS  + "/";
+                                + prefs.getString(MessagingPreferenceActivity.MMS_SAVE_LOCATION, "download")  + "/";
                 String extension;
                 int index;
                 if ((index = fileName.indexOf(".")) == -1) {
@@ -1545,6 +1604,7 @@ public class ComposeMessageActivity extends Activity
             }
         }
     };
+    private int mGestureSensitivity;
 
     private static ContactList sEmptyContactList;
 
@@ -1670,8 +1730,30 @@ public class ComposeMessageActivity extends Activity
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
 
-        setContentView(R.layout.compose_message_activity);
+        SharedPreferences prefs = PreferenceManager.getDefaultSharedPreferences((Context)ComposeMessageActivity.this);
+        mBlackBackground = prefs.getBoolean(MessagingPreferenceActivity.BLACK_BACKGROUND, false);
+        mBackToAllThreads = prefs.getBoolean(MessagingPreferenceActivity.BACK_TO_ALL_THREADS, false);
+        mSendOnEnter = prefs.getBoolean(MessagingPreferenceActivity.SEND_ON_ENTER, true);
+        mGestureSensitivity = prefs.getInt(MessagingPreferenceActivity.GESTURE_SENSITIVITY_VALUE, 3);
+
+        boolean showGesture = prefs.getBoolean(MessagingPreferenceActivity.SHOW_GESTURE, false);
+
+        int layout = R.layout.compose_message_activity;
+
+        if (mBlackBackground) {
+            layout = R.layout.compose_message_activity_black;
+        }
+
+        GestureOverlayView gestureOverlayView = new GestureOverlayView(this);
+        View inflate = getLayoutInflater().inflate(layout, null);
+        gestureOverlayView.addView(inflate);
+        gestureOverlayView.setEventsInterceptionEnabled(true);
+        gestureOverlayView.setGestureVisible(showGesture);
+        gestureOverlayView.addOnGesturePerformedListener(this);
+        setContentView(gestureOverlayView);
         setProgressBarVisibility(false);
+
+        mLibrary = TemplateGesturesLibrary.getStore(this);
 
         getWindow().setSoftInputMode(WindowManager.LayoutParams.SOFT_INPUT_ADJUST_RESIZE |
                 WindowManager.LayoutParams.SOFT_INPUT_STATE_HIDDEN);
@@ -1686,6 +1768,79 @@ public class ComposeMessageActivity extends Activity
 
         if (TRACE) {
             android.os.Debug.startMethodTracing("compose");
+        }
+
+        registerForContextMenu(mTextEditor);
+    }
+
+    @Override
+    protected Dialog onCreateDialog(int id, Bundle args) {
+        AlertDialog.Builder builder = new AlertDialog.Builder(this);
+        switch (id) {
+            case DIALOG_TEMPLATE_NOT_AVAILABLE:
+                builder.setTitle(R.string.template_not_present_error_title);
+                builder.setMessage(R.string.template_not_present_error);
+                return builder.create();
+
+            case DIALOG_TEMPLATE_SELECT:
+                builder = new AlertDialog.Builder(this);
+                builder.setTitle(R.string.template_select);
+                builder.setItems(mTemplatesText, new OnClickListener() {
+                    @Override
+                    public void onClick(DialogInterface dialog, int which) {
+                        mTextEditor.append(mTemplatesText[which]);
+                    }
+                });
+                return builder.create();
+        }
+        return super.onCreateDialog(id, args);
+    }
+
+    @Override
+    public void onCreateContextMenu(ContextMenu menu, View v, ContextMenuInfo menuInfo) {
+        if (v == mTextEditor) {
+            menu.setHeaderTitle(R.string.template_insert_ctx_menu_title);
+            menu.add(Menu.NONE, MENU_INSERT_TEMPLATE, Menu.NONE, R.string.template_insert);
+        }
+        super.onCreateContextMenu(menu, v, menuInfo);
+    }
+
+    @Override
+    public boolean onContextItemSelected(MenuItem item) {
+        if (item.getItemId() == MENU_INSERT_TEMPLATE) {
+            showInsertTemplateDialog();
+        }
+        return super.onContextItemSelected(item);
+    }
+
+    private void showInsertTemplateDialog() {
+        if (mTemplatesDb == null) {
+            mTemplatesDb = new TemplatesDb(this);
+        }
+
+        mTemplatesDb.open();
+        mTemplatesText = mTemplatesDb.getAllTemplatesText();
+        mTemplatesDb.close();
+
+        if (mTemplatesText.length > 0) {
+            showDialog(DIALOG_TEMPLATE_SELECT);
+        } else {
+            showDialog(DIALOG_TEMPLATE_NOT_AVAILABLE);
+        }
+    }
+
+    public void onGesturePerformed(GestureOverlayView overlay, Gesture gesture) {
+        ArrayList<Prediction> predictions = mLibrary.recognize(gesture);
+        for (Prediction prediction : predictions) {
+            if (prediction.score > mGestureSensitivity) {
+                if (mTemplatesDb == null) {
+                    mTemplatesDb = new TemplatesDb(ComposeMessageActivity.this);
+                }
+                mTemplatesDb.open();
+                String text = mTemplatesDb.getTemplateTextFromId(Long.parseLong(prediction.name));
+                mTemplatesDb.close();
+                mTextEditor.append(text);
+            }
         }
     }
 
@@ -2004,6 +2159,13 @@ public class ComposeMessageActivity extends Activity
             mMsgListAdapter.changeCursor(null);
         }
 
+        if (mRecipientsEditor != null) {
+            CursorAdapter recipientsAdapter = (CursorAdapter)mRecipientsEditor.getAdapter();
+            if (recipientsAdapter != null) {
+                recipientsAdapter.changeCursor(null);
+            }
+        }
+
         if (Log.isLoggable(LogTag.APP, Log.VERBOSE)) {
             log("save draft");
         }
@@ -2110,8 +2272,13 @@ public class ComposeMessageActivity extends Activity
                 break;
             case KeyEvent.KEYCODE_BACK:
                 exitComposeMessageActivity(new Runnable() {
-                    public void run() {
-                        finish();
+                        public void run() {
+                        //Always return to all threads
+                        if (mBackToAllThreads) {
+                            goToConversationList();
+                        } else {
+                            finish();
+                        }
                     }
                 });
                 return true;
@@ -2462,6 +2629,12 @@ public class ComposeMessageActivity extends Activity
                 editSlideshow();
                 break;
 
+            case AttachmentTypeSelectorAdapter.ADD_CONTACT_INFO:
+                final Intent intent = new Intent(Intent.ACTION_PICK,
+                        Contacts.CONTENT_URI);
+                startActivityForResult(intent, REQUEST_CODE_ATTACH_CONTACT);
+                break;
+
             default:
                 break;
         }
@@ -2556,6 +2729,10 @@ public class ComposeMessageActivity extends Activity
                 addAudio(data.getData());
                 break;
 
+            case REQUEST_CODE_ATTACH_CONTACT:
+                showContactInfoDialog(data.getData());
+                break;
+
             case REQUEST_CODE_ECM_EXIT_DIALOG:
                 boolean outOfEmergencyMode = data.getBooleanExtra(EXIT_ECM_RESULT, false);
                 if (outOfEmergencyMode) {
@@ -2589,6 +2766,62 @@ public class ComposeMessageActivity extends Activity
                 // TODO
                 break;
         }
+    }
+
+    private void showContactInfoDialog(Uri contactUri) {
+
+        String contactId = null,
+               displayName = null;
+        Cursor contactCursor = getContentResolver().query(contactUri,
+                new String[] {Contacts._ID, Contacts.DISPLAY_NAME}, null, null, null);
+        if(contactCursor.moveToFirst()){
+            contactId = contactCursor.getString(0);
+            displayName = contactCursor.getString(1);
+        }
+        else {
+            Toast.makeText(this, R.string.cannot_find_contact, Toast.LENGTH_SHORT).show();
+            return;
+        }
+
+        final Cursor entryCursor = getContentResolver().query(Data.CONTENT_URI,
+                new String[] {
+                    Data._ID,
+                    Data.DATA1,
+                    Data.DATA2,
+                    Data.DATA3,
+                    Data.MIMETYPE
+                },
+                Data.CONTACT_ID + "=? AND ("
+                        + Data.MIMETYPE + "=? OR "
+                        + Data.MIMETYPE + "=? OR "
+                        + Data.MIMETYPE + "=? OR "
+                        + Data.MIMETYPE + "=?)",
+                new String[] {
+                    contactId,
+                    CommonDataKinds.Phone.CONTENT_ITEM_TYPE,
+                    CommonDataKinds.Email.CONTENT_ITEM_TYPE,
+                    CommonDataKinds.StructuredPostal.CONTENT_ITEM_TYPE,
+                    CommonDataKinds.Website.CONTENT_ITEM_TYPE
+                },
+                Data.DATA2
+            );
+
+        ContactEntryAdapter adapter = new ContactEntryAdapter(this, entryCursor);
+
+        AlertDialog.Builder builder = new AlertDialog.Builder(this);
+        builder.setIcon(R.drawable.ic_dialog_attach);
+        builder.setTitle(displayName);
+        builder.setAdapter(adapter, new DialogInterface.OnClickListener() {
+            public void onClick(DialogInterface dialog, int which) {
+                entryCursor.moveToPosition(which);
+                String value = entryCursor.getString(entryCursor.getColumnIndex(Data.DATA1));
+                int start = mTextEditor.getSelectionStart();
+                int end = mTextEditor.getSelectionEnd();
+                mTextEditor.getText().replace(Math.min(start, end), Math.max(start, end), value);
+                dialog.dismiss();
+            }
+        });
+        builder.show();
     }
 
     private final ResizeImageResultCallback mResizeImageCallback = new ResizeImageResultCallback() {
@@ -2847,6 +3080,10 @@ public class ComposeMessageActivity extends Activity
 
     public boolean onEditorAction(TextView v, int actionId, KeyEvent event) {
         if (event != null) {
+            // Send on Enter
+            if (((event.getKeyCode() == KeyEvent.KEYCODE_DPAD_CENTER) || (event.getKeyCode() == KeyEvent.KEYCODE_ENTER)) && !mSendOnEnter) {
+                return false;
+            }
             // if shift key is down, then we want to insert the '\n' char in the TextView;
             // otherwise, the default action is to send the message.
             if (!event.isShiftPressed()) {
@@ -3114,19 +3351,54 @@ public class ComposeMessageActivity extends Activity
                 }
             }
 
-            // send can change the recipients. Make sure we remove the listeners first and then add
-            // them back once the recipient list has settled.
-            removeRecipientsListeners();
+            final Runnable onRun = new Runnable() {
+                public void run() {
+                    // send can change the recipients. Make sure we remove the listeners first and then add
+                    // them back once the recipient list has settled.
+                    removeRecipientsListeners();
 
-            mWorkingMessage.send(mDebugRecipients);
+                    mWorkingMessage.send(mDebugRecipients);
 
-            mSentMessage = true;
-            mSendingMessage = true;
-            addRecipientsListeners();
-        }
-        // But bail out if we are supposed to exit after the message is sent.
-        if (mExitOnSent) {
-            finish();
+                    mSentMessage = true;
+                    mSendingMessage = true;
+                    addRecipientsListeners();
+                    // But bail out if we are supposed to exit after the message is sent.
+                    if (mExitOnSent) {
+                        finish();
+                    }
+                }
+            };
+            final Runnable onCancel = new Runnable() {
+                public void run() {
+                    finish();
+                }
+            };
+
+            if (phoneGoggles != null) {
+                try {
+                    phoneGoggles.invoke(null, this,
+                            1, // 1 for phone numbers, 2 for email addresses, 0 otherwise
+                            mConversation.getRecipients().getNumbers(),
+                            onRun, onCancel,
+                            R.string.dialog_phone_goggles_title,
+                            R.string.dialog_phone_goggles_title_unlocked,
+                            R.string.dialog_phone_goggles_content,
+                            R.string.dialog_phone_goggles_unauthorized,
+                            R.string.dialog_phone_goggles_ok,
+                            R.string.dialog_phone_goggles_cancel);
+
+                } catch (IllegalArgumentException e) {
+                    e.printStackTrace();
+                } catch (IllegalAccessException e) {
+                    e.printStackTrace();
+                } catch (InvocationTargetException e) {
+                    e.printStackTrace();
+                }
+
+            // If the Phone Goggles API doesn't exist
+            } else {
+                onRun.run();
+            }
         }
     }
 
