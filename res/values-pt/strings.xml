@@ -32,7 +32,6 @@
     <string name="menu_delete_all" msgid="808729454898114735">"Excluir todas as conversas"</string>
     <string name="menu_delete" msgid="1851666911396479006">"Excluir conversa"</string>
     <string name="menu_view" msgid="7448852683948080108">"Visualizar conversa"</string>
-    <string name="menu_debug_dump" msgid="6855869130206549643">"DEPURAR DEPÓSITO"</string>
     <string name="refreshing" msgid="987335057871404222">"Atualizando..."</string>
     <string name="menu_cell_broadcasts" msgid="5646161375983084660">"Transmissões por celular"</string>
     <string name="has_draft" msgid="2487465595514636160">"Rascunho"</string>
@@ -399,4 +398,7 @@
     <string name="toast_sending_message">Enviando mensagem</string>
     <string name="qm_quick_reply">Resposta rápida</string>
     <string name="button_templates">Modelos</string>
+    <string name="pref_dark_theme_title">Usar tema escuro</string>
+    <string name="pref_dark_theme_summary">Se não estiver selecionado, será utilizado o tema \'claro\' padrão</string>
+    <string name="desc_mms_push">Envia MMS da caixa de saída para a rede</string>
 </resources>
