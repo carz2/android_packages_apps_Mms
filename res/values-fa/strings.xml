@@ -82,7 +82,7 @@
     <string name="mms" msgid="1587631213714914559">"MMS"</string>
     <string name="all_threads" msgid="2663426830306307194">"همه رشته ها"</string>
     <string name="type_to_compose_text_enter_to_send" msgid="3539985471008581265">"تایپ پیام"</string>
-    <string name="open_keyboard_to_compose_message" msgid="7860109685511253191">"برای تایپ پیام صفحه کلید را باز کنید"</string>
+    <string name="open_keyboard_to_compose_message" msgid="7860109685511253191">"برای تایپ پیام صفحه‌کلید را باز کنید"</string>
     <string name="compressing" msgid="1961357529661045180">"تصویر خیلی بزرگ است. در حال فشرده سازی..."</string>
     <string name="unsupported_media_format" msgid="1350489690977363764">"قالب <xliff:g id="NAME">%1$s</xliff:g> پشتیبانی نشده."</string>
     <string name="select_different_media" msgid="6241623357299382183">"یک <xliff:g id="NAME">%1$s</xliff:g> متفاوت را انتخاب کنید."</string>
@@ -102,7 +102,7 @@
     <string name="cannot_send_message" msgid="3414307479833622644">"ارسال پیام امکان‌پذیر نیست"</string>
     <string name="cannot_send_message_reason" msgid="8745080126044054343">"پیام شما هیچ گیرنده معتبری ندارد."</string>
     <string name="cannot_forward_drm_obj" msgid="5047623751430559077">"شیء DRM موجود در پیام باز ارسال نمی‌شود."</string>
-    <string name="converting_to_picture_message" msgid="2980023239017588627">"در حال تبدیل به پیام چند رسانه ای..."</string>
+    <string name="converting_to_picture_message" msgid="2980023239017588627">"در حال تبدیل به پیام چند رسانه‌ای..."</string>
     <string name="converting_to_text_message" msgid="6374423235426015422">"در حال تبدیل به پیام متنی..."</string>
     <string name="cannot_add_slide_anymore" msgid="4631404749618820994">"افزودن اسلایدهای بیشتر امکان‌پذیر نیست."</string>
     <string name="cannot_add_picture_and_video" msgid="4954353772391381447">"افزودن ویدیو و عکس به یک اسلاید امکان‌پذیر نیست."</string>
@@ -208,7 +208,7 @@
     <string name="multimedia_notification" msgid="4124031788554972308">"اعلان های پیام چند رسانه ای"</string>
     <string name="from_label" msgid="2055117571548171397">"فرستنده: "</string>
     <string name="to_address_label" msgid="5837363600471845801">"گیرنده: "</string>
-    <string name="bcc_label" msgid="530867161453958774">"گیرنده کپی مخفی: "</string>
+    <string name="bcc_label" msgid="530867161453958774">"گیرندهٔ کپی مخفی: "</string>
     <string name="sent_label" msgid="2722190650145251584">"ارسال شد: "</string>
     <string name="received_label" msgid="8618029024731693906">"دریافت شد: "</string>
     <string name="saved_label" msgid="4183160415593488207">"ذخیره شد: "</string>
@@ -224,7 +224,7 @@
     <string name="menu_delete_messages" msgid="2610286783513247420">"حذف پیام ها"</string>
     <string name="menu_lock" msgid="7603793126077557472">"قفل"</string>
     <string name="menu_unlock" msgid="6662865558677424039">"بازگشایی قفل"</string>
-    <string name="sim_copy_to_phone_memory" product="tablet" msgid="3721000641648594602">"کپی در حافظه رایانه لوحی"</string>
+    <string name="sim_copy_to_phone_memory" product="tablet" msgid="3721000641648594602">"کپی در حافظه رایانهٔ لوحی"</string>
     <string name="sim_copy_to_phone_memory" product="default" msgid="5895767417844881971">"کپی در حافظه تلفن"</string>
     <string name="sim_delete" msgid="610790510655316922">"حذف"</string>
     <string name="sim_manage_messages_title" msgid="3989147182100584333">"پیام های متنی در سیم کارت"</string>
