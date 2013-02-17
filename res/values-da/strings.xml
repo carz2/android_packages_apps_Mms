@@ -343,6 +343,8 @@
     <string name="enumeration_comma" msgid="213598026698964628">", "</string>
     <string name="message_timestamp_format" msgid="4188999027493614617">"<xliff:g id="STRING_0">%1$s</xliff:g> – <xliff:g id="STRING_1">%2$s</xliff:g>"</string>
 
+    <!-- CYANOGENMOD ADDITIONS START -->
+
     <!-- Settings item for boolean option for SMS Split Counter -->
     <string name="pref_title_sms_split_counter">Delingstæller</string>
     <!-- Settings item description for boolean SMS Split 160 characters setting -->
@@ -374,7 +376,6 @@
     <string name="gestures_already_present">Advarsel: En lign. bevægelse er tilknyttet en anden skabelon!</string>
 
     <!-- Change Vibrate pattern/method for message notification -->
-    <string name="pref_title_mms_notification_vibrate_settings">Vibrationsindstillinger</string>
     <string name="pref_title_mms_notification_vibrate_pattern">Vibrationsmønster</string>
     <string name="pref_summary_mms_notification_vibrate_pattern">Skift vibrationsmønster</string>
     <string name="pref_title_mms_notification_vibrate_call">Vibrér ved opkald</string>
@@ -432,10 +433,23 @@
 
     <!-- Settings item for the soft keyboard picker -->
     <string name="pref_title_input_type">Type af softwaretastatur</string>
-    <string name="pref_summary_input_type">Vælg det softwaretastatur, som skal bruges til at skrive beskeder</string>
 
     <!-- Soft Keyboard Type -->
     <string name="pref_keyboard_emoji">Smiley</string>
     <string name="pref_keyboard_new_line">Ny linje med Enter</string>
+    <string name="pref_keyboard_unknown">Ukendt, vælg venligst igen</string>
 
+    <!-- Add menu for 'Add SMS to calendar remind' -->
+    <string name="menu_add_to_calendar">Tilføj til kalender</string>
+
+    <!-- Privacy mode -->
+    <string name="pref_title_notification_privacy_mode_enabled">Privatlivstilstand</string>
+    <string name="pref_summary_notification_privacy_mode_enabled">Skjul afsender og besked i statuslinje og slå Svar fra</string>
+    <string name="notification_single_title_privacy_mode">Ny besked</string>
+    <string name="notification_single_text_privacy_mode">1 ulæst besked</string>
+    <string name="notification_multiple_title_privacy_mode">Nye beskeder</string>
+    <string name="notification_multiple_text_privacy_mode"><xliff:g id="number" example="3">%1$s</xliff:g> ulæste beskeder</string>
+    <string name="notification_ticker_privacy_mode">Ny besked modtaget</string>
+
+    <!-- CYANOGENMOD ADDITIONS END -->
 </resources>
