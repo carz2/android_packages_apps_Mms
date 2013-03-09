@@ -114,6 +114,11 @@
             android:title="@string/pref_title_notification_enabled"
             android:defaultValue="true" />
 
+        <CheckBoxPreference android:key="pref_key_sms_breath"
+            android:title="@string/sms_breath"
+            android:summary="@string/sms_breath_summary"
+            android:defaultValue="false" />
+
        <CheckBoxPreference
             android:key="pref_key_enable_privacy_mode"
             android:layout="?android:attr/preferenceLayoutChild"
