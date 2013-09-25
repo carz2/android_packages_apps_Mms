@@ -190,6 +190,7 @@ public class ConversationList extends ListActivity implements DraftCache.OnDraft
     protected void onResume() {
         super.onResume();
 
+        mIsRunning = true;
         mListAdapter.setOnContentChangedListener(mContentChangedListener);
     }
 
@@ -322,12 +323,6 @@ public class ConversationList extends ListActivity implements DraftCache.OnDraft
         if (!Conversation.loadingThreads()) {
             Contact.invalidateCache();
         }
-    }
-
-    @Override
-    protected void onResume() {
-        super.onResume();
-        mIsRunning = true;
     }
 
     @Override
